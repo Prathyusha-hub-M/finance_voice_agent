@@ -32,15 +32,20 @@ async def process_text(text: str = Form(...)):
         steps = []
         final_state = state
 
+        steps = []
         for event in graph.stream(state):
-            for node_name, node_output in event.items():
+            for node_name in event.keys():
                 steps.append(node_name)
-                final_state = node_output
+        
+        final_state = graph.invoke(state)
+        
+        if isinstance(final_state, dict):
+            final_state = AgentState(**final_state)
 
         expense_obj = final_state.expense
         summary_obj = final_state.summary_result
 
-        payload = None
+        payload = {}
         if expense_obj is not None:
             payload = expense_obj.model_dump()
         elif summary_obj is not None:
@@ -75,10 +80,15 @@ async def process_voice(file: UploadFile = File(...)):
         steps = []
         final_state = state
 
+
         for event in graph.stream(state):
-            for node_name, node_output in event.items():
+            for node_name in event.keys():
                 steps.append(node_name)
-                final_state = node_output
+        final_state = graph.invoke(state)
+
+        # Convert dict → AgentState if needed
+        if isinstance(final_state, dict):
+            final_state = AgentState(**final_state)
 
         expense_obj = final_state.expense
         summary_obj = final_state.summary_result
@@ -88,6 +98,14 @@ async def process_voice(file: UploadFile = File(...)):
             payload = expense_obj.model_dump()
         elif summary_obj is not None:
             payload = summary_obj
+            print("FINAL RESPONSE:", {
+                    "request_id": final_state.request_id,
+                    "intent": final_state.intent,
+                    "response": final_state.response,
+                    "execution_path": steps,
+                    "data": payload,
+                    "errors": final_state.errors,
+                })
 
         return AgentResponse(
             request_id=final_state.request_id,

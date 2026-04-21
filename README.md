@@ -1,6 +1,3 @@
-
-
-````md
 #  Finance Voice Agent (LangGraph + GenAI)
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
@@ -64,7 +61,6 @@ This project demonstrates how to:
 3. Extract structured data  
    ```json
    { "amount": 25, "category": "food" }
-````
 
 4. Validate schema + constraints
 5. Store in database (Notion)

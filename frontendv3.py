@@ -100,7 +100,7 @@ st.subheader("Add Expense")
 
 text_col, voice_col = st.columns(2)
 
-response = None  # ✅ define once globally
+response = None 
 
 # -----------------------
 # TEXT INPUT (FIXED)
@@ -185,7 +185,7 @@ data = st.session_state.latest_data
 if data:
     st.subheader("🤖 Assistant")
 
-    # 🎤 Show transcription FIRST (if exists)
+
     transcribed = data.get("data", {}).get("transcribed_text")
     if transcribed:
         st.markdown("**🎤 Transcribed Input**")

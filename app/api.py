@@ -6,6 +6,10 @@ from app.graph.builder import build_graph
 from app.schemas.state import AgentState
 from app.schemas.api import AgentResponse, HealthResponse
 from app.services.speech_to_text import transcribe_audio
+from app.services.notion_service import get_dashboard_summary
+from app.services.insights import generate_insight
+
+cached_insight = None
 
 app = FastAPI(title="Finance Voice Agent")
 
@@ -27,6 +31,7 @@ def root():
 
 @app.post("/text", response_model=AgentResponse)
 async def process_text(text: str = Form(...)):
+    global cached_insight 
     try:
         state = AgentState(user_input=text)
         steps = []
@@ -51,7 +56,7 @@ async def process_text(text: str = Form(...)):
         elif summary_obj is not None:
             payload = summary_obj
 
-
+        cached_insight = None
         return AgentResponse(
             request_id=final_state.request_id,
             intent=final_state.intent,
@@ -67,6 +72,7 @@ async def process_text(text: str = Form(...)):
 
 @app.post("/voice", response_model=AgentResponse)
 async def process_voice(file: UploadFile = File(...)):
+    global cached_insight 
     try:
         audio_bytes = await file.read()
 
@@ -93,11 +99,15 @@ async def process_voice(file: UploadFile = File(...)):
         expense_obj = final_state.expense
         summary_obj = final_state.summary_result
 
-        payload = {"transcribed_text": transcribed_text}
+        payload = {
+            "transcribed_text": transcribed_text
+        }
+
         if expense_obj is not None:
-            payload = expense_obj.model_dump()
+            payload.update(expense_obj.model_dump())
+
         elif summary_obj is not None:
-            payload = summary_obj
+            payload.update(summary_obj)
             print("FINAL RESPONSE:", {
                     "request_id": final_state.request_id,
                     "intent": final_state.intent,
@@ -106,7 +116,8 @@ async def process_voice(file: UploadFile = File(...)):
                     "data": payload,
                     "errors": final_state.errors,
                 })
-
+        
+        cached_insight = None
         return AgentResponse(
             request_id=final_state.request_id,
             intent=final_state.intent,
@@ -118,3 +129,22 @@ async def process_voice(file: UploadFile = File(...)):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+
+
+@app.get("/summary")
+def summary():
+    global cached_insight
+    data = get_dashboard_summary()
+    if not cached_insight:
+        if data.get("total_spend", 0) > 0:
+            try:
+                cached_insight = generate_insight(data)
+            except Exception:
+                cached_insight = "Unable to generate insights right now."
+        else:
+            cached_insight = "Start tracking expenses to get insights."
+
+    data["insight"] = cached_insight
+
+    return data
